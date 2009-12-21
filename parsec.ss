@@ -7,6 +7,7 @@
   (export parse catch fail eof? bof? pop push input-of
 
           prev next choice many many-1 satisfy lexeme literal sequence try
+          sep-by symbol
 
           define-parser parser-body
 
@@ -136,6 +137,7 @@
           (bind pos input-position)
           (bind r (catch (car ps)))
           (bind pos* input-position)
+
           (if (result? r)
               r
               (if (= pos pos*)
@@ -145,10 +147,10 @@
   (define-parser (many p)
     (bind pos input-position)
     (bind r (catch p))
-    (bind newpos input-position)
+    (bind pos* input-position)
 
     (if (result? r)
-        (if (= newpos pos)
+        (if (= pos pos*)
             (error 'many "Applied to parser that accepts an empty string.")
             (begin
               (bind rs (many p))
@@ -177,18 +179,23 @@
     r)
 
   (define-parser (literal s)
-    (bind seq (char-seq (string->list s)))
-    (make-result
-     (list->string (result-value seq))
-     (result-input seq)))
+    (letrec ((char-seq
+              (lambda (chars)
+                (sequence
+                  (if (null? chars)
+                      (return '())
+                      (begin
+                        (bind c (satisfy (lambda (c) (char=? c (car chars)))))
+                        (bind cs (char-seq (cdr chars)))
+                        (return (cons (result-value c) (result-value cs)))))))))
 
-  (define-parser (char-seq chars)
-    (if (null? chars)
-        (return '())
-        (begin
-          (bind c (satisfy (lambda (c) (eq? c (car chars)) c)))
-          (bind cs (char-seq (cdr chars)))
-          (return (cons (result-value c) (result-value cs))))))
+      (bind seq (char-seq (string->list s)))
+      (make-result
+       (list->string (result-value seq))
+       (result-input seq))))
+
+  (define-parser (symbol s)
+    (lexeme (literal s)))
 
   (define-parser (try p)
     (bind pos input-position)
@@ -201,4 +208,12 @@
           (input-state (failure-input r))
           pos
           (input-fail (failure-input r))))
-        r)))
+        r))
+
+  (define-parser (sep-by delim p)
+    (bind r (catch p))
+    (if (result? r)
+        (begin
+          (bind rs (many (sequence delim p)))
+          (return (cons r (result-value rs))))
+        (return '()))))
