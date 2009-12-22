@@ -1,15 +1,15 @@
-;;; parsec.scm
-;; A Parser Combinator library.
+;;; parsec.ss
+;; A parser combinators library.
 
 #!r6rs
 
 (library (parsec)
   (export parse catch fail eof? bof? pop push input-of
 
-          prev next choice many many-1 satisfy lexeme literal sequence try
-          sep-by symbol
+          define-parser parser-body sequence
 
-          define-parser parser-body
+          prev next try choice many many-1 sep-by sep-by-1 satisfy lexeme
+          literal symbol
 
           input? make-input input-value input-state input-position input-fail
           result? make-result result-value result-input
@@ -20,8 +20,10 @@
 
   (define-record-type input
     (fields value state position fail))
+
   (define-record-type result
     (fields value input))
+
   (define-record-type failure
     (fields message input))
 
@@ -216,4 +218,9 @@
         (begin
           (bind rs (many (sequence delim p)))
           (return (cons r (result-value rs))))
-        (return '()))))
+        (return '())))
+
+  (define-parser (sep-by-1 delim p)
+    (bind r p)
+    (bind rs (many (sequence delim p)))
+    (return (cons r (result-value rs)))))
