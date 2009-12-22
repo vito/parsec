@@ -9,7 +9,7 @@
           define-parser parser-body sequence
 
           prev next try choice many many-1 sep-by sep-by-1 satisfy lexeme
-          literal symbol
+          literal symbol between parens
 
           input? make-input input-value input-state input-position input-fail
           result? make-result result-value result-input
@@ -98,26 +98,26 @@
                                                    (input-position (input-of a in))
                                                    (input-fail in))))
                                          (parser-body in rest ...)))
-        ((_ in (fail msg))           #'(fail in msg))
-        ((_ in (return x))           #'(let ((val x))
-                                         (if (procedure? val)
-                                             (begin
-                                               (let* ((r (val in))
-                                                      (in (input-of r in)))
-                                                 (make-result r in)))
-                                             (make-result val in))))
-        ((_ in (eof?))               #'(eof? in))
-        ((_ in (bof?))               #'(bof? in))
-        ((_ in x)                    #'(let ((val x))
-                                         (cond
-                                          ((result? val) (make-result (result-value val) in))
-                                          ((procedure? val) (val in))
-                                          (else val))))
-        ((_ in x rest ...)           #'(let ((val x))
-                                         (if (procedure? val)
-                                             (let ((in (input-of (val in) in)))
-                                               (parser-body in rest ...))
-                                             (begin val (parser-body in rest ...))))))))
+        ((_ in (fail msg)) #'(fail in msg))
+        ((_ in (return x)) #'(let ((val x))
+                               (if (procedure? val)
+                                   (begin
+                                     (let* ((r (val in))
+                                            (in (input-of r in)))
+                                       (make-result r in)))
+                                   (make-result val in))))
+        ((_ in (eof?))     #'(eof? in))
+        ((_ in (bof?))     #'(bof? in))
+        ((_ in x)          #'(let ((val x))
+                               (cond
+                                ((result? val) (make-result (result-value val) in))
+                                ((procedure? val) (val in))
+                                (else val))))
+        ((_ in x rest ...) #'(let ((val x))
+                               (if (procedure? val)
+                                   (let ((in (input-of (val in) in)))
+                                     (parser-body in rest ...))
+                                   (begin val (parser-body in rest ...))))))))
 
   ;; Combinators
   (define (next)
@@ -223,4 +223,13 @@
   (define-parser (sep-by-1 delim p)
     (bind r p)
     (bind rs (many (sequence delim p)))
-    (return (cons r (result-value rs)))))
+    (return (cons r (result-value rs))))
+
+  (define-parser (between before after p)
+    before
+    (bind r p)
+    after
+    r)
+
+  (define-parser (parens p)
+    (between (symbol "(") (symbol ")") p)))
